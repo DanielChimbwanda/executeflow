@@ -1,4 +1,526 @@
+import React, { useState, useEffect } from 'react';
+import { Plus, ChevronRight, Edit2, Trash2, Save, X, ChevronLeft, Eye, EyeOff } from 'lucide-react';
+import './App.css';
 
+export default function ExecuteFlow() {
+  const [projects, setProjects] = useState([]);
+  const [ideas, setIdeas] = useState([]);
+  const [view, setView] = useState('dashboard');
+  const [selectedProject, setSelectedProject] = useState(null);
+  const [editingProject, setEditingProject] = useState(null);
+  const [showNewIdea, setShowNewIdea] = useState(false);
+  const [newIdeaTitle, setNewIdeaTitle] = useState('');
+  const [newIdeaType, setNewIdeaType] = useState('AI Solution');
+  const [filter, setFilter] = useState('all');
+  const [expandedAIs, setExpandedAIs] = useState({});
+
+  // Load from localStorage
+  useEffect(() => {
+    try {
+      const projectsData = localStorage.getItem('executeflow-projects');
+      const ideasData = localStorage.getItem('executeflow-ideas');
+      
+      if (projectsData) setProjects(JSON.parse(projectsData));
+      if (ideasData) setIdeas(JSON.parse(ideasData));
+    } catch (error) {
+      console.log('First time setup');
+    }
+  }, []);
+
+  // Save to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('executeflow-projects', JSON.stringify(projects));
+      localStorage.setItem('executeflow-ideas', JSON.stringify(ideas));
+    } catch (error) {
+      console.error('Save error:', error);
+    }
+  }, [projects, ideas]);
+
+  const handleNewIdea = () => {
+    if (newIdeaTitle.trim()) {
+      const idea = {
+        id: Math.max(...ideas.map(i => i.id), 0) + 1,
+        title: newIdeaTitle,
+        type: newIdeaType,
+        createdDate: new Date().toISOString().split('T')[0],
+        status: 'Brainstorm'
+      };
+      setIdeas([idea, ...ideas]);
+      setNewIdeaTitle('');
+      setShowNewIdea(false);
+    }
+  };
+
+  const handleNewProject = () => {
+    const newProject = {
+      id: Math.max(...projects.map(p => p.id), 0) + 1,
+      title: 'New Project',
+      type: 'AI Solution',
+      sector: 'Other',
+      stage: 'Ideation',
+      description: '',
+      aiInsights: { claude: '', chatgpt: '', gemini: '', deepseek: '', grok: '', copilot: '' },
+      actions: [],
+      blockers: '',
+      resources: '',
+      financials: '',
+      createdDate: new Date().toISOString().split('T')[0]
+    };
+    setProjects([newProject, ...projects]);
+    setSelectedProject(newProject);
+    setView('project');
+  };
+
+  const handleEditProject = (project) => {
+    setEditingProject({ ...project });
+  };
+
+  const handleSaveProject = () => {
+    setProjects(projects.map(p => p.id === editingProject.id ? editingProject : p));
+    setSelectedProject(editingProject);
+    setEditingProject(null);
+  };
+
+  const handleDeleteProject = (id) => {
+    setProjects(projects.filter(p => p.id !== id));
+    setView('dashboard');
+  };
+
+  const handleDeleteIdea = (id) => {
+    setIdeas(ideas.filter(i => i.id !== id));
+  };
+
+  const handlePromoteIdea = (idea) => {
+    const newProject = {
+      id: Math.max(...projects.map(p => p.id), 0) + 1,
+      title: idea.title,
+      type: idea.type,
+      sector: 'Other',
+      stage: 'Ideation',
+      description: '',
+      aiInsights: { claude: '', chatgpt: '', gemini: '', deepseek: '', grok: '', copilot: '' },
+      actions: [],
+      blockers: '',
+      resources: '',
+      financials: '',
+      createdDate: idea.createdDate
+    };
+    setProjects([newProject, ...projects]);
+    handleDeleteIdea(idea.id);
+    setSelectedProject(newProject);
+    setView('project');
+  };
+
+  const toggleAI = (aid) => {
+    setExpandedAIs(prev => ({ ...prev, [aid]: !prev[aid] }));
+  };
+
+  const filteredProjects = filter === 'all' ? projects : projects.filter(p => p.stage === filter);
+
+  if (view === 'dashboard') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-8">
+            <h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400 mb-2">
+              ExecuteFlow
+            </h1>
+            <p className="text-slate-400 text-lg">Capture Ideas. Get Multi-AI Feedback. Execute.</p>
+          </div>
+
+          <div className="grid grid-cols-4 gap-4 mb-8">
+            <div className="stat-card">
+              <p className="stat-label">Active Projects</p>
+              <p className="stat-number text-blue-400">{projects.length}</p>
+            </div>
+            <div className="stat-card">
+              <p className="stat-label">Ideas Pipeline</p>
+              <p className="stat-number text-cyan-400">{ideas.length}</p>
+            </div>
+            <div className="stat-card">
+              <p className="stat-label">Ready to Execute</p>
+              <p className="stat-number text-green-400">{projects.filter(p => p.stage === 'Ready').length}</p>
+            </div>
+            <div className="stat-card">
+              <p className="stat-label">In Progress</p>
+              <p className="stat-number text-yellow-400">{projects.filter(p => p.stage === 'In Progress').length}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 mb-8">
+            {!showNewIdea ? (
+              <button
+                onClick={() => setShowNewIdea(true)}
+                className="btn-blue"
+              >
+                <Plus size={24} /> Quick Idea Capture
+              </button>
+            ) : (
+              <div className="bg-slate-800 rounded-lg p-4 border border-slate-600">
+                <input
+                  type="text"
+                  placeholder="Idea title..."
+                  value={newIdeaTitle}
+                  onChange={(e) => setNewIdeaTitle(e.target.value)}
+                  className="w-full bg-slate-700 text-white placeholder-slate-500 rounded px-3 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  onKeyPress={(e) => e.key === 'Enter' && handleNewIdea()}
+                  autoFocus
+                />
+                <select
+                  value={newIdeaType}
+                  onChange={(e) => setNewIdeaType(e.target.value)}
+                  className="w-full bg-slate-700 text-white rounded px-3 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option>AI Solution</option>
+                  <option>AI Execution</option>
+                  <option>Research</option>
+                  <option>Business Model</option>
+                </select>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleNewIdea}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded font-semibold transition"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => setShowNewIdea(false)}
+                    className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded font-semibold transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+            <button
+              onClick={handleNewProject}
+              className="btn-cyan"
+            >
+              <Plus size={24} /> New Project
+            </button>
+          </div>
+
+          <div className="mb-6 flex gap-2 flex-wrap">
+            <button
+              onClick={() => setFilter('all')}
+              className={`px-4 py-2 rounded font-semibold transition ${filter === 'all' ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+            >
+              All ({projects.length})
+            </button>
+            {['Ideation', 'Research', 'Planning', 'Ready', 'In Progress', 'Testing', 'Launch'].map(stage => (
+              <button
+                key={stage}
+                onClick={() => setFilter(stage)}
+                className={`px-4 py-2 rounded font-semibold transition ${filter === stage ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+              >
+                {stage} ({projects.filter(p => p.stage === stage).length})
+              </button>
+            ))}
+          </div>
+
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-white mb-4">Projects ({filteredProjects.length})</h2>
+            {filteredProjects.length === 0 ? (
+              <div className="bg-slate-800 rounded-lg p-8 text-center border border-slate-600">
+                <p className="text-slate-400">No projects yet. Create one to get started!</p>
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {filteredProjects.map(project => (
+                  <div
+                    key={project.id}
+                    className="bg-gradient-to-r from-slate-800 to-slate-700 rounded-lg p-5 hover:from-slate-700 hover:to-slate-600 transition cursor-pointer border border-slate-600 hover:border-blue-500"
+                    onClick={() => { setSelectedProject(project); setView('project'); }}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h3 className="text-xl font-bold text-white">{project.title}</h3>
+                        <p className="text-slate-400 text-sm mt-1 line-clamp-2">{project.description || 'No description'}</p>
+                        <div className="flex gap-2 mt-3 flex-wrap">
+                          <span className="bg-blue-900 text-blue-200 text-xs px-3 py-1 rounded font-semibold">{project.type}</span>
+                          <span className="bg-purple-900 text-purple-200 text-xs px-3 py-1 rounded font-semibold">{project.sector}</span>
+                          <span className="bg-green-900 text-green-200 text-xs px-3 py-1 rounded font-semibold">{project.stage}</span>
+                        </div>
+                      </div>
+                      <ChevronRight className="text-slate-400" size={24} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <h2 className="text-2xl font-bold text-white mb-4">Ideas Pipeline ({ideas.length})</h2>
+            {ideas.length === 0 ? (
+              <div className="bg-slate-800 rounded-lg p-8 text-center border border-slate-600">
+                <p className="text-slate-400">No ideas yet. Capture your first idea!</p>
+              </div>
+            ) : (
+              <div className="grid gap-3">
+                {ideas.map(idea => (
+                  <div key={idea.id} className="bg-slate-800 rounded-lg p-4 flex items-start justify-between hover:bg-slate-700 transition border border-slate-600">
+                    <div className="flex-1">
+                      <h3 className="text-white font-semibold">{idea.title}</h3>
+                      <div className="flex gap-2 mt-2">
+                        <span className="text-slate-400 text-xs bg-slate-700 px-2 py-1 rounded">{idea.type}</span>
+                        <span className="text-slate-400 text-xs bg-slate-700 px-2 py-1 rounded">{idea.status}</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handlePromoteIdea(idea)}
+                        className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm font-semibold transition"
+                      >
+                        Promote
+                      </button>
+                      <button
+                        onClick={() => handleDeleteIdea(idea.id)}
+                        className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm font-semibold transition"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (view === 'project' && selectedProject) {
+    const project = editingProject || selectedProject;
+    const aiTools = [
+      { key: 'claude', label: 'Claude', color: 'from-purple-900 to-purple-800' },
+      { key: 'chatgpt', label: 'ChatGPT', color: 'from-green-900 to-green-800' },
+      { key: 'gemini', label: 'Gemini', color: 'from-blue-900 to-blue-800' },
+      { key: 'deepseek', label: 'DeepSeek', color: 'from-red-900 to-red-800' },
+      { key: 'grok', label: 'Grok', color: 'from-yellow-900 to-yellow-800' },
+      { key: 'copilot', label: 'Copilot', color: 'from-cyan-900 to-cyan-800' }
+    ];
+
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6">
+        <div className="max-w-5xl mx-auto">
+          <button
+            onClick={() => { setView('dashboard'); setEditingProject(null); }}
+            className="flex items-center gap-2 text-blue-400 hover:text-blue-300 mb-6 transition font-semibold"
+          >
+            <ChevronLeft size={20} /> Back to Dashboard
+          </button>
+
+          <div className="bg-gradient-to-br from-slate-800 to-slate-700 rounded-lg p-8 border border-slate-600">
+            <div className="flex items-start justify-between mb-8">
+              <div className="flex-1">
+                {editingProject ? (
+                  <input
+                    type="text"
+                    value={editingProject.title}
+                    onChange={(e) => setEditingProject({ ...editingProject, title: e.target.value })}
+                    className="text-4xl font-black text-white bg-slate-600 rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3 block w-full"
+                  />
+                ) : (
+                  <h1 className="text-4xl font-black text-white mb-3">{project.title}</h1>
+                )}
+                <div className="flex gap-2 flex-wrap">
+                  <span className="bg-blue-900 text-blue-200 text-xs px-3 py-1 rounded font-semibold">{project.type}</span>
+                  <span className="bg-purple-900 text-purple-200 text-xs px-3 py-1 rounded font-semibold">{project.sector}</span>
+                  <span className="bg-green-900 text-green-200 text-xs px-3 py-1 rounded font-semibold">{project.stage}</span>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                {editingProject ? (
+                  <>
+                    <button onClick={handleSaveProject} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded flex items-center gap-2 transition font-semibold">
+                      <Save size={18} /> Save
+                    </button>
+                    <button onClick={() => setEditingProject(null)} className="bg-slate-600 hover:bg-slate-500 text-white px-4 py-2 rounded flex items-center gap-2 transition font-semibold">
+                      <X size={18} /> Cancel
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button onClick={() => handleEditProject(project)} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center gap-2 transition font-semibold">
+                      <Edit2 size={18} /> Edit
+                    </button>
+                    <button onClick={() => handleDeleteProject(project.id)} className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded flex items-center gap-2 transition font-semibold">
+                      <Trash2 size={18} /> Delete
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              <div>
+                <label className="block text-slate-300 font-bold mb-2">Description</label>
+                {editingProject ? (
+                  <textarea
+                    value={editingProject.description}
+                    onChange={(e) => setEditingProject({ ...editingProject, description: e.target.value })}
+                    className="w-full bg-slate-600 text-white rounded px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    rows="4"
+                  />
+                ) : (
+                  <p className="text-white text-lg">{project.description || '(No description)'}</p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-slate-300 font-bold mb-2">Stage</label>
+                  {editingProject ? (
+                    <select
+                      value={editingProject.stage}
+                      onChange={(e) => setEditingProject({ ...editingProject, stage: e.target.value })}
+                      className="w-full bg-slate-600 text-white rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option>Ideation</option>
+                      <option>Research</option>
+                      <option>Planning</option>
+                      <option>Ready</option>
+                      <option>In Progress</option>
+                      <option>Testing</option>
+                      <option>Launch</option>
+                    </select>
+                  ) : (
+                    <p className="text-white text-lg font-semibold">{project.stage}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-slate-300 font-bold mb-2">Sector</label>
+                  {editingProject ? (
+                    <select
+                      value={editingProject.sector}
+                      onChange={(e) => setEditingProject({ ...editingProject, sector: e.target.value })}
+                      className="w-full bg-slate-600 text-white rounded px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option>Health</option>
+                      <option>Education</option>
+                      <option>Housing</option>
+                      <option>Manufacturing</option>
+                      <option>Pharmaceutical</option>
+                      <option>Farming</option>
+                      <option>Infrastructure</option>
+                      <option>Technology</option>
+                      <option>Other</option>
+                    </select>
+                  ) : (
+                    <p className="text-white text-lg font-semibold">{project.sector}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-slate-900 rounded-lg p-4 border border-slate-700">
+                <h3 className="text-xl font-bold text-white mb-4">🤖 AI Feedback</h3>
+                <div className="space-y-3">
+                  {aiTools.map(ai => (
+                    <div key={ai.key} className={`bg-gradient-to-r ${ai.color} rounded-lg p-3`}>
+                      <button
+                        onClick={() => toggleAI(ai.key)}
+                        className="w-full flex items-center justify-between text-white font-semibold hover:opacity-80"
+                      >
+                        <span>{ai.label}</span>
+                        {expandedAIs[ai.key] ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                      {expandedAIs[ai.key] && (
+                        <div className="mt-3">
+                          {editingProject ? (
+                            <textarea
+                              value={editingProject.aiInsights[ai.key]}
+                              onChange={(e) => setEditingProject({
+                                ...editingProject,
+                                aiInsights: { ...editingProject.aiInsights, [ai.key]: e.target.value }
+                              })}
+                              className="w-full bg-slate-700 text-white rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                              rows="3"
+                              placeholder={`Add insights from ${ai.label}...`}
+                            />
+                          ) : (
+                            <p className="text-white text-sm">{editingProject.aiInsights[ai.key] || `(No feedback)`}</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-bold mb-2">📋 Next Actions</label>
+                {editingProject ? (
+                  <textarea
+                    value={editingProject.actions.join('\n')}
+                    onChange={(e) => setEditingProject({ ...editingProject, actions: e.target.value.split('\n').filter(a => a.trim()) })}
+                    className="w-full bg-slate-600 text-white rounded px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    rows="4"
+                    placeholder="List actions (one per line)"
+                  />
+                ) : (
+                  <ul className="text-white list-disc list-inside">
+                    {project.actions.length > 0 ? project.actions.map((a, i) => <li key={i}>{a}</li>) : <li className="text-slate-400">(No actions)</li>}
+                  </ul>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-bold mb-2">⚠️ Blockers</label>
+                {editingProject ? (
+                  <textarea
+                    value={editingProject.blockers}
+                    onChange={(e) => setEditingProject({ ...editingProject, blockers: e.target.value })}
+                    className="w-full bg-slate-600 text-white rounded px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    rows="3"
+                  />
+                ) : (
+                  <p className="text-white">{project.blockers || '(No blockers)'}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-bold mb-2">📚 Resources</label>
+                {editingProject ? (
+                  <textarea
+                    value={editingProject.resources}
+                    onChange={(e) => setEditingProject({ ...editingProject, resources: e.target.value })}
+                    className="w-full bg-slate-600 text-white rounded px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    rows="3"
+                  />
+                ) : (
+                  <p className="text-white">{project.resources || '(No resources)'}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-bold mb-2">💰 Financial Notes</label>
+                {editingProject ? (
+                  <textarea
+                    value={editingProject.financials}
+                    onChange={(e) => setEditingProject({ ...editingProject, financials: e.target.value })}
+                    className="w-full bg-slate-600 text-white rounded px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    rows="3"
+                  />
+                ) : (
+                  <p className="text-white">{project.financials || '(No financial details)'}</p>
+                )}
+              </div>
+
+              <p className="text-slate-400 text-sm border-t border-slate-600 pt-4">Created: {project.createdDate}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+// FILE 6: src/index.css
 * {
   margin: 0;
   padding: 0;
@@ -6,9 +528,13 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-  background: #ffffff;
-  color: #000;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: linear-gradient(135deg, #0f172a 0%, #1a202c 100%);
+  color: #fff;
 }
 
 html, body, #root {
@@ -16,329 +542,139 @@ html, body, #root {
   height: 100%;
 }
 
+/* Utility classes */
 .min-h-screen {
   min-height: 100vh;
-  padding: 2rem;
-  background: #ffffff;
 }
 
-.max-w-7xl {
-  max-width: 80rem;
-  margin: 0 auto;
+.bg-gradient-to-br {
+  background-image: linear-gradient(135deg, var(--tw-gradient-stops));
 }
 
-.max-w-5xl {
-  max-width: 64rem;
-  margin: 0 auto;
+.from-slate-950 {
+  --tw-gradient-from: #03020d;
 }
 
-h1 {
-  font-size: 4rem;
-  font-weight: 900;
-  color: #2563eb;
-  margin-bottom: 0.5rem;
+.via-slate-900 {
+  --tw-gradient-via: #0f172a;
 }
 
-h2 {
-  font-size: 2rem;
-  font-weight: 800;
-  margin-bottom: 1.5rem;
-  color: #000;
+.to-slate-950 {
+  --tw-gradient-to: #03020d;
 }
 
-h3 {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #000;
-}
-
-p {
-  font-size: 1.125rem;
-  color: #666;
-  line-height: 1.6;
-}
-
-.grid {
-  display: grid;
-  gap: 1.5rem;
-}
-
-.grid-cols-4 {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.grid-cols-2 {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-@media (max-width: 768px) {
-  .grid-cols-4 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  
-  .grid-cols-2 {
-    grid-template-columns: 1fr;
-  }
-}
-
-.stat-card {
-  background: #f8f9fa;
-  border: 1px solid #e0e0e0;
-  border-radius: 0.75rem;
-  padding: 2rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.stat-number {
-  font-size: 4rem;
-  font-weight: 900;
-  margin-top: 0.75rem;
-  line-height: 1;
-}
-
-.stat-label {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #666;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-button {
-  font-family: inherit;
-  cursor: pointer;
-  border: none;
-  border-radius: 0.75rem;
-  font-weight: 700;
-  transition: all 150ms ease;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  font-size: 1.1rem;
-}
-
-.btn-blue {
-  background: #2563eb;
-  color: #fff;
-  padding: 1.25rem 2rem;
-  width: 100%;
-  justify-content: center;
-}
-
-.btn-blue:hover {
-  background: #1d4ed8;
-}
-
-.btn-cyan {
-  background: #06b6d4;
-  color: #fff;
-  padding: 1.25rem 2rem;
-  width: 100%;
-  justify-content: center;
-}
-
-.btn-cyan:hover {
-  background: #0891b2;
-}
-
-.btn-green {
-  background: #16a34a;
-  color: #fff;
-  padding: 0.65rem 1.25rem;
-  font-size: 0.95rem;
-}
-
-.btn-green:hover {
-  background: #15803d;
-}
-
-.btn-red {
-  background: #dc2626;
-  color: #fff;
-  padding: 0.65rem 1.25rem;
-  font-size: 0.95rem;
-}
-
-.btn-red:hover {
-  background: #b91c1c;
-}
-
-.btn-secondary {
-  background: #e5e7eb;
-  color: #333;
-}
-
-.btn-secondary:hover {
-  background: #d1d5db;
-}
-
-.card {
-  background: #ffffff;
-  border: 1px solid #e0e0e0;
-  border-radius: 0.75rem;
-  padding: 1.75rem;
-  transition: all 150ms ease;
-  cursor: pointer;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.card-empty {
-  background: #f8f9fa;
-  border: 1px solid #e0e0e0;
-  border-radius: 0.75rem;
-  padding: 3rem 2rem;
-  text-align: center;
-  color: #666;
-}
-
-input, select, textarea {
-  background-color: #ffffff;
-  color: #000;
-  border: 1px solid #d0d0d0;
-  border-radius: 0.75rem;
-  padding: 0.75rem;
-  font-family: inherit;
-  font-size: 1rem;
-  width: 100%;
-  margin-bottom: 0.75rem;
-  transition: all 150ms ease;
-}
-
-input:focus, select:focus, textarea:focus {
-  outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
-}
-
-input::placeholder, textarea::placeholder {
-  color: #999;
-}
-
-label {
-  display: block;
-  color: #000;
-  font-weight: 700;
-  margin-bottom: 0.75rem;
-}
-
-.flex {
-  display: flex;
-  gap: 0.75rem;
-}
-
-.flex-wrap {
-  flex-wrap: wrap;
-}
-
-.items-center {
-  align-items: center;
-}
-
-.items-start {
-  align-items: flex-start;
-}
-
-.justify-between {
-  justify-content: space-between;
-}
-
-.justify-center {
-  justify-content: center;
-}
-
+/* Additional Tailwind-like utilities */
+.p-6 { padding: 1.5rem; }
+.p-4 { padding: 1rem; }
+.p-8 { padding: 2rem; }
 .mb-8 { margin-bottom: 2rem; }
-.mb-6 { margin-bottom: 1.5rem; }
 .mb-4 { margin-bottom: 1rem; }
-.mb-3 { margin-bottom: 0.75rem; }
 .mb-2 { margin-bottom: 0.5rem; }
+.mb-3 { margin-bottom: 0.75rem; }
 .mt-2 { margin-top: 0.5rem; }
 .mt-3 { margin-top: 0.75rem; }
 .gap-4 { gap: 1rem; }
 .gap-2 { gap: 0.5rem; }
-.p-4 { padding: 1rem; }
-.p-8 { padding: 2rem; }
+.rounded-lg { border-radius: 0.5rem; }
+.rounded { border-radius: 0.25rem; }
+.border { border: 1px solid currentColor; }
+.border-slate-600 { border-color: #475569; }
+.border-slate-700 { border-color: #334155; }
+.text-white { color: #fff; }
+.text-slate-300 { color: #cbd5e1; }
+.text-slate-400 { color: #94a3b8; }
+.text-slate-500 { color: #64748b; }
+.text-slate-700 { color: #334155; }
+.text-slate-800 { color: #1e293b; }
+.text-slate-900 { color: #0f172a; }
+.text-2xl { font-size: 1.5rem; font-weight: 700; }
+.text-4xl { font-size: 2.25rem; font-weight: 900; }
+.text-5xl { font-size: 3rem; font-weight: 900; }
+.text-lg { font-size: 1.125rem; }
+.text-sm { font-size: 0.875rem; }
+.text-xs { font-size: 0.75rem; }
+.font-bold { font-weight: 700; }
+.font-black { font-weight: 900; }
+.font-semibold { font-weight: 600; }
+.flex { display: flex; }
+.flex-1 { flex: 1 1 0%; }
+.items-center { align-items: center; }
+.items-start { align-items: flex-start; }
+.justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
+.grid { display: grid; }
+.grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.max-w-7xl { max-width: 80rem; }
+.max-w-5xl { max-width: 64rem; }
+.mx-auto { margin-left: auto; margin-right: auto; }
+.space-y-6 > * + * { margin-top: 1.5rem; }
+.space-y-3 > * + * { margin-top: 0.75rem; }
+.space-y-4 > * + * { margin-top: 1rem; }
+.line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.transition { transition-property: all; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }
+.hover\:from-blue-700:hover { --tw-gradient-from: #1d4ed8; }
+.hover\:to-blue-800:hover { --tw-gradient-to: #1e40af; }
+.hover\:from-cyan-700:hover { --tw-gradient-from: #0891b2; }
+.hover\:to-cyan-800:hover { --tw-gradient-to: #0e7490; }
+.hover\:bg-slate-600:hover { background-color: #475569; }
+.hover\:bg-slate-700:hover { background-color: #334155; }
+.hover\:bg-blue-700:hover { background-color: #1d4ed8; }
+.hover\:bg-green-700:hover { background-color: #15803d; }
+.hover\:bg-red-700:hover { background-color: #b91c1c; }
+.hover\:border-blue-500:hover { border-color: #3b82f6; }
+.focus\:outline-none:focus { outline: 2px solid transparent; outline-offset: 2px; }
+.focus\:ring-2:focus { --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color); --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color); box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow); }
+.focus\:ring-blue-500:focus { --tw-ring-color: #3b82f6; }
+.focus\:ring-blue-300:focus { --tw-ring-color: #93c5fd; }
+.bg-slate-800 { background-color: #1e293b; }
+.bg-slate-700 { background-color: #334155; }
+.bg-slate-600 { background-color: #475569; }
+.bg-slate-900 { background-color: #0f172a; }
+.bg-blue-600 { background-color: #2563eb; }
+.bg-blue-700 { background-color: #1d4ed8; }
+.bg-blue-900 { background-color: #1e3a8a; }
+.bg-green-600 { background-color: #16a34a; }
+.bg-green-700 { background-color: #15803d; }
+.bg-green-900 { background-color: #14532d; }
+.bg-red-600 { background-color: #dc2626; }
+.bg-red-700 { background-color: #b91c1c; }
+.bg-red-900 { background-color: #7f1d1d; }
+.bg-cyan-600 { background-color: #0891b2; }
+.bg-cyan-700 { background-color: #0e7490; }
+.bg-cyan-900 { background-color: #083344; }
+.bg-purple-900 { background-color: #4c1d95; }
+.bg-purple-800 { background-color: #5b21b6; }
+.bg-yellow-900 { background-color: #713f12; }
+.bg-yellow-800 { background-color: #854d0e; }
+.from-blue-400 { --tw-gradient-from: #60a5fa; }
+.to-cyan-400 { --tw-gradient-to: #22d3ee; }
+.from-blue-600 { --tw-gradient-from: #2563eb; }
+.to-blue-700 { --tw-gradient-to: #1d4ed8; }
+.from-cyan-600 { --tw-gradient-from: #0891b2; }
+.to-cyan-700 { --tw-gradient-to: #0e7490; }
+.from-purple-900 { --tw-gradient-from: #4c1d95; }
+.to-purple-800 { --tw-gradient-to: #5b21b6; }
+.from-green-900 { --tw-gradient-from: #14532d; }
+.to-green-800 { --tw-gradient-to: #166534; }
+.from-red-900 { --tw-gradient-from: #7f1d1d; }
+.to-red-800 { --tw-gradient-to: #991b1b; }
+.from-yellow-900 { --tw-gradient-from: #713f12; }
+.to-yellow-800 { --tw-gradient-to: #854d0e; }
 .px-4 { padding-left: 1rem; padding-right: 1rem; }
 .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+.px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
+.py-4 { padding-top: 1rem; padding-bottom: 1rem; }
+.py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
 .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
 .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
-
-.text-blue-400 { color: #2563eb; }
-.text-cyan-400 { color: #06b6d4; }
-.text-green-400 { color: #22c55e; }
-.text-yellow-400 { color: #eab308; }
-
-.badge {
-  display: inline-block;
-  padding: 0.35rem 0.85rem;
-  border-radius: 0.35rem;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: #fff;
-}
-
-.badge-blue { background: #2563eb; }
-.badge-green { background: #16a34a; }
-.badge-purple { background: #9333ea; }
-.badge-cyan { background: #06b6d4; }
-
-.ai-claude { background: #9333ea; color: #fff; }
-.ai-chatgpt { background: #16a34a; color: #fff; }
-.ai-gemini { background: #2563eb; color: #fff; }
-.ai-deepseek { background: #dc2626; color: #fff; }
-.ai-grok { background: #f59e0b; color: #fff; }
-.ai-copilot { background: #06b6d4; color: #fff; }
-
-ul {
-  list-style: disc;
-  margin-left: 1.5rem;
-  color: #000;
-}
-
-li {
-  margin-bottom: 0.5rem;
-  color: #333;
-}
-
-.border-top {
-  border-top: 1px solid #e0e0e0;
-  padding-top: 1rem;
-}
-
-.transition {
-  transition: all 150ms ease;
-}
-
-.line-clamp-2 {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.flex-1 {
-  flex: 1;
-}
-
-.w-full {
-  width: 100%;
-}
-
-.rounded-lg {
-  border-radius: 0.75rem;
-}
-
-.space-y-6 > * + * {
-  margin-top: 1.5rem;
-}
-
-.space-y-3 > * + * {
-  margin-top: 0.75rem;
-}
-
-.shadow-lg {
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-}
+.py-8 { padding-top: 2rem; padding-bottom: 2rem; }
+.flex-wrap { flex-wrap: wrap; }
+.flex-shrink-0 { flex-shrink: 0; }
+.list-disc { list-style-type: disc; }
+.list-inside { list-style-position: inside; }
+.shadow-lg { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+.w-full { width: 100%; }
+.cursor-pointer { cursor: pointer; }
+.placeholder-slate-500::placeholder { color: #64748b; }
+.placeholder-slate-400::placeholder { color: #94a3b8; }
